@@ -1,0 +1,17 @@
+[package]
+name = "snowman"
+version = "0.0.0"
+edition = "2021"
+
+[dependencies]
+snowc = { branch = "master", git = "https://github.com/cowboy8625/snow-lang" }
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+serenity = { version = "0.11.5", default-features = false, features = ["client", "gateway", "rustls_backend", "model"] }
+
+[profile.release]
+opt-level = 'z'     # Optimize for size.
+lto = true          # Enable Link Time Optimization
+codegen-units = 1   # Reduce number of codegen units to increase optimizations.
+panic = 'abort'     # Abort on panic
+strip = true        # Strip symbols from binary*
+
