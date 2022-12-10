@@ -1,4 +1,5 @@
 use std::env;
+use std::process::Command;
 use snowc::*;
 
 use serenity::async_trait;
@@ -8,6 +9,92 @@ use serenity::prelude::*;
 
 const PARSE: &str = "@parse";
 const EVAL: &str = "@eval";
+const BUILD: &str = "@build";
+
+#[derive(Debug)]
+enum Language {
+    Rust,
+    Java,
+    None,
+}
+
+impl Language {
+    fn len(&self) -> usize {
+        format!("{self:?}").len()
+    }
+}
+
+impl From<&str> for Language {
+    fn from(lang: &str) -> Self {
+        match lang {
+            "rust" => Self::Rust,
+            "java"  => Self::Java,
+            _ => Self::None
+        }
+    }
+}
+
+#[derive(Debug)]
+struct CodeBlock {
+    lang: Language,
+    code: String,
+}
+
+impl CodeBlock {
+    fn compile(&self) -> String {
+        let output = match self.lang {
+            Language::Rust => self.rust(),
+            Language::Java => self.java(),
+            Language::None => "not a supported language".into(),
+        };
+        let lang_type = format!("{:?}", self.lang).to_lowercase();
+        format!("```{lang_type}\n{output}```")
+    }
+
+    fn rust(&self) -> String {
+        let Ok(_) = std::fs::write("rust_file.rs", &self.code) else {
+            return "".into();
+        };
+        let Ok(output) = Command::new("rustc").arg("rust_file.rs").output() else {
+            return "".into();
+        };
+        let Ok(out) = String::from_utf8(output.stdout) else {
+            return "".into();
+        };
+        let Ok(err) = String::from_utf8(output.stderr) else {
+            return "".into();
+        };
+        format!("{out}\n{err}")
+    }
+
+    fn java(&self) -> String {
+        let Ok(_) = std::fs::write("Main.java", &self.code) else {
+            return "".into();
+        };
+        match Command::new("javac").arg("Main.java").output() {
+            Ok(output) => {
+
+                let Ok(out) = String::from_utf8(output.stdout) else {
+                    return "".into();
+                };
+                let Ok(err) = String::from_utf8(output.stderr) else {
+                    return "".into();
+                };
+                format!("{out}\n{err}")
+            }
+            Err(e) => e.to_string()
+        }
+    }
+}
+
+impl From<&str> for CodeBlock {
+    fn from(code_block: &str) -> Self {
+        let name = code_block.split('\n').collect::<Vec<_>>()[0];
+        let lang = Language::from(name);
+        let code = code_block[lang.len()..].trim().to_string();
+        Self { lang, code }
+    }
+}
 
 fn strip_code_of_backticks<'a>(code: &'a str) -> &'a str {
     code
@@ -20,6 +107,7 @@ fn strip_code_of_backticks<'a>(code: &'a str) -> &'a str {
             .map(|i|i.strip_suffix("`"))
             .flatten().unwrap_or(code))
 }
+
 fn get_code_block<'a>(msg: &'a str, command: &str) -> Result<&'a str, &'a str> {
     println!("{}", msg);
     let code_block = msg.get(command.len()..);
@@ -75,6 +163,22 @@ impl EventHandler for Handler {
                 }
                 Err(err) => {
                     let output = format!("{err} {EVAL}");
+                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
+                        println!("Error sending message: {:?}", why);
+                    }
+                }
+            }
+        } else if msg.content.starts_with(BUILD) {
+            match get_code_block(msg.content.as_str(), BUILD) {
+                Ok(code) => {
+                    let code_block = CodeBlock::from(code);
+                    let output = code_block.compile();
+                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
+                        println!("Error sending message: {:?}", why);
+                    }
+                }
+                Err(err) => {
+                    let output = format!("{err} {BUILD}");
                     if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
                         println!("Error sending message: {:?}", why);
                     }
