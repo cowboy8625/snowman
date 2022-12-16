@@ -134,11 +134,11 @@ fn get_code_block<'a>(msg: &'a str, command: &str) -> Result<&'a str, &'a str> {
     Ok(strip_code_of_backticks(code))
 }
 
-fn format_block(msg: &str) -> String {
-    let line_len = msg.lines().count();
-    let prefix = if line_len > 1 { "```" } else {"`"};
-    format!("{prefix}{msg}{prefix}")
-}
+// fn format_block(msg: &str) -> String {
+//     let line_len = msg.lines().count();
+//     let prefix = if line_len > 1 { "```" } else {"`"};
+//     format!("{prefix}{msg}{prefix}")
+// }
 
 struct Handler;
 
@@ -148,45 +148,6 @@ impl EventHandler for Handler {
         if msg.content.starts_with(COMPILE) {
             match get_code_block(msg.content.as_str(), COMPILE) {
                 Ok(code) => {
-                    let output = CompilerBuilder::default().src(code).build()
-                        .map(|ast| ast.iter()
-                            .map(|func| {
-                                format!("{func}\n")
-                            }).collect::<String>()
-                        ).unwrap_or_else(|why|format!("Error parsing '{code}' {why}"));
-                    let output = format_block(&output);
-                    println!("{output}");
-                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
-                        println!("Error sending message: {:?}", why);
-                    }
-                }
-                Err(err) => {
-                    let output = format!("{err} {PARSE}");
-                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
-                        println!("Error sending message: {:?}", why);
-                    }
-                }
-            }
-
-        } else if msg.content.starts_with(EVAL) {
-            match get_code_block(msg.content.as_str(), EVAL) {
-                Ok(code) => {
-                    let output = format!("Not working at the moment as you can see\n[EVAL]: {code}");
-                    let output = format_block(&output);
-                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
-                        println!("Error sending message: {:?}", why);
-                    }
-                }
-                Err(err) => {
-                    let output = format!("{err} {EVAL}");
-                    if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
-                        println!("Error sending message: {:?}", why);
-                    }
-                }
-            }
-        } else if msg.content.starts_with(BUILD) {
-            match get_code_block(msg.content.as_str(), BUILD) {
-                Ok(code) => {
                     let code_block = CodeBlock::from(code);
                     let output = code_block.compile();
                     if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
@@ -194,7 +155,7 @@ impl EventHandler for Handler {
                     }
                 }
                 Err(err) => {
-                    let output = format!("{err} {BUILD}");
+                    let output = format!("{err} {COMPILE}");
                     if let Err(why) = msg.channel_id.say(&ctx.http, output).await {
                         println!("Error sending message: {:?}", why);
                     }
