@@ -1,20 +1,18 @@
 use std::env;
 use std::process::Command;
-use snowc::*;
 
 use serenity::async_trait;
 use serenity::model::channel::Message;
 use serenity::model::gateway::Ready;
 use serenity::prelude::*;
 
-const PARSE: &str = "@parse";
-const EVAL: &str = "@eval";
-const BUILD: &str = "@build";
+const COMPILE: &str = "|compile";
 
 #[derive(Debug)]
 enum Language {
     Rust,
     Java,
+    Snow,
     None,
 }
 
@@ -29,6 +27,7 @@ impl From<&str> for Language {
         match lang {
             "rust" => Self::Rust,
             "java"  => Self::Java,
+            "snow"  => Self::Snow,
             _ => Self::None
         }
     }
@@ -45,6 +44,7 @@ impl CodeBlock {
         let output = match self.lang {
             Language::Rust => self.rust(),
             Language::Java => self.java(),
+            Language::Snow => self.snow(),
             Language::None => "not a supported language".into(),
         };
         let lang_type = format!("{:?}", self.lang).to_lowercase();
@@ -84,6 +84,22 @@ impl CodeBlock {
             }
             Err(e) => e.to_string()
         }
+    }
+
+    fn snow(&self) -> String {
+        let Ok(_) = std::fs::write("snow_file.rs", &self.code) else {
+            return "".into();
+        };
+        let Ok(output) = Command::new("snowc").arg("snowc_file.rs").output() else {
+            return "".into();
+        };
+        let Ok(out) = String::from_utf8(output.stdout) else {
+            return "".into();
+        };
+        let Ok(err) = String::from_utf8(output.stderr) else {
+            return "".into();
+        };
+        format!("{out}\n{err}")
     }
 }
 
@@ -129,10 +145,10 @@ struct Handler;
 #[async_trait]
 impl EventHandler for Handler {
     async fn message(&self, ctx: Context, msg: Message) {
-        if msg.content.starts_with(PARSE) {
-            match get_code_block(msg.content.as_str(), PARSE) {
+        if msg.content.starts_with(COMPILE) {
+            match get_code_block(msg.content.as_str(), COMPILE) {
                 Ok(code) => {
-                    let output = parse(code, true)
+                    let output = CompilerBuilder::default().src(code).build()
                         .map(|ast| ast.iter()
                             .map(|func| {
                                 format!("{func}\n")
