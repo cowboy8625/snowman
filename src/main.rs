@@ -87,10 +87,10 @@ impl CodeBlock {
     }
 
     fn snow(&self) -> String {
-        let Ok(_) = std::fs::write("snow_file.rs", &self.code) else {
+        let Ok(_) = std::fs::write("snow_file.snow", &self.code) else {
             return "".into();
         };
-        let Ok(output) = Command::new("snowc").arg("snowc_file.rs").output() else {
+        let Ok(output) = Command::new("snowc").arg("snow_file.snow").output() else {
             return "".into();
         };
         let Ok(out) = String::from_utf8(output.stdout) else {
