@@ -87,19 +87,12 @@ impl CodeBlock {
     }
 
     fn snow(&self) -> String {
-        let Ok(_) = std::fs::write("snow_file.snow", &self.code) else {
-            return "".into();
+        let Some(output) = Command::new("snowc").args([&self.code, "-d", "-s"]).output().ok() else {
+            return "failed to compile".into();
         };
-        let Ok(output) = Command::new("snowc").arg("snow_file.snow").output() else {
-            return "".into();
-        };
-        let Ok(out) = String::from_utf8(output.stdout) else {
-            return "".into();
-        };
-        let Ok(err) = String::from_utf8(output.stderr) else {
-            return "".into();
-        };
-        format!("{out}\n{err}")
+        let stderr = String::from_utf8(output.stderr).unwrap_or("<stderr>".into());
+        let stdout = String::from_utf8(output.stdout).unwrap_or("<stdout>".into());
+        format!("{stderr}{stdout}")
     }
 }
 
